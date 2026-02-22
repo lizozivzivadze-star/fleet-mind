@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLEET MIND — Dual-USV Coordinated Patrol</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --teal: #00e5cc;
+    --teal-dim: #00e5cc30;
+    --teal-glow: #00e5cc60;
+    --blue: #1a9fff;
+    --red: #ff3b3b;
+    --orange: #ff8c00;
+    --bg: #020b14;
+    --bg2: #041220;
+    --bg3: #061828;
+    --panel: rgba(4,18,32,0.96);
+    --border: rgba(0,229,204,0.2);
+    --text: #c8e8e0;
+    --dim: #3a6060;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  /* ---- HEADER ---- */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: relative;
+    overflow: hidden;
+  }
+
+  #header::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--teal), transparent);
+    animation: scan-h 4s linear infinite;
+  }
+
+  @keyframes scan-h {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .title-block h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--teal);
+    letter-spacing: 6px;
+    text-shadow: 0 0 20px var(--teal-glow), 0 0 40px var(--teal-dim);
+  }
+
+  .title-block .sub {
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 4px;
+    margin-top: 2px;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 28px;
+  }
+
+  .hstat {
+    text-align: center;
+  }
+
+  .hstat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    color: var(--teal);
+    font-weight: 700;
+  }
+
+  .hstat-label {
+    font-size: 8px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+    box-shadow: 0 0 8px var(--teal);
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ---- MAIN LAYOUT ---- */
+  #main {
+    display: grid;
+    grid-template-columns: 220px 1fr 260px;
+    gap: 0;
+    height: calc(100vh - 60px);
+  }
+
+  /* ---- PANELS ---- */
+  .panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .panel-right {
+    border-right: none;
+    border-left: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+  }
+
+  /* ---- MODE BUTTONS ---- */
+  .mode-btn {
+    width: 100%;
+    padding: 10px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mode-btn::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0;
+    background: var(--teal-dim);
+    transition: width 0.2s;
+  }
+
+  .mode-btn:hover::before, .mode-btn.active::before {
+    width: 100%;
+  }
+
+  .mode-btn.active {
+    border-color: var(--teal);
+    color: var(--teal);
+  }
+
+  .mode-btn:hover {
+    border-color: var(--teal);
+    color: var(--teal);
+  }
+
+  .mode-icon { margin-right: 8px; }
+
+  /* ---- STAT ROWS ---- */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0,229,204,0.05);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+
+  .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--teal);
+  }
+
+  .stat-val.warn { color: var(--orange); }
+  .stat-val.danger { color: var(--red); }
+  .stat-val.blue { color: var(--blue); }
+
+  /* ---- PROGRESS BARS ---- */
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(0,229,204,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--teal), var(--blue));
+    transition: width 0.3s ease;
+    box-shadow: 0 0 8px var(--teal-glow);
+  }
+
+  .progress-fill.red {
+    background: linear-gradient(90deg, var(--red), var(--orange));
+  }
+
+  /* ---- GAME CANVAS AREA ---- */
+  #game-area {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg2);
+    overflow: hidden;
+  }
+
+  #game-canvas {
+    flex: 1;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* ---- BOTTOM CONTROLS ---- */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+  }
+
+  .ctrl-btn {
+    padding: 8px 20px;
+    background: transparent;
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .ctrl-btn:hover {
+    background: var(--teal-dim);
+    box-shadow: 0 0 12px var(--teal-glow);
+  }
+
+  .ctrl-btn.danger {
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .ctrl-btn.danger:hover {
+    background: rgba(255,59,59,0.15);
+  }
+
+  .speed-selector {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-left: auto;
+  }
+
+  .speed-btn {
+    padding: 5px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .speed-btn.active {
+    border-color: var(--teal);
+    color: var(--teal);
+    background: var(--teal-dim);
+  }
+
+  /* ---- AI NARRATION BOX ---- */
+  #narration-box {
+    background: rgba(0,229,204,0.04);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: #7ab8b0;
+    line-height: 1.6;
+    min-height: 60px;
+    position: relative;
+  }
+
+  #narration-box::before {
+    content: '◈ AI TACTICAL FEED';
+    display: block;
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    margin-bottom: 6px;
+  }
+
+  .typing-cursor {
+    display: inline-block;
+    width: 6px;
+    height: 12px;
+    background: var(--teal);
+    margin-left: 2px;
+    animation: blink 0.8s step-end infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* ---- LEADERBOARD ---- */
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(0,229,204,0.05);
+    font-size: 11px;
+  }
+
+  .lb-rank {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    width: 20px;
+  }
+
+  .lb-rank.gold { color: #ffd700; }
+  .lb-rank.silver { color: #c0c0c0; }
+  .lb-rank.bronze { color: #cd7f32; }
+
+  .lb-name { flex: 1; color: var(--text); }
+
+  .lb-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: var(--teal);
+  }
+
+  /* ---- USV STATUS CARDS ---- */
+  .usv-card {
+    border: 1px solid var(--border);
+    padding: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .usv-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .usv-card.usv1::before { background: var(--teal); }
+  .usv-card.usv2::before { background: var(--blue); }
+
+  .usv-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .usv-card.usv1 .usv-name { color: var(--teal); }
+  .usv-card.usv2 .usv-name { color: var(--blue); }
+
+  /* ---- THREAT COUNTER ---- */
+  .threat-indicators {
+    display: flex;
+    gap: 8px;
+  }
+
+  .threat-dot {
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--red);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .threat-dot.active::after {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--red);
+    border-radius: 50%;
+    animation: pulse-dot 1s infinite;
+  }
+
+  .threat-dot.neutralized {
+    border-color: var(--teal);
+  }
+
+  .threat-dot.neutralized::after {
+    content: '✓';
+    font-size: 9px;
+    color: var(--teal);
+    animation: none;
+  }
+
+  /* ---- INPUT ---- */
+  .game-input {
+    background: rgba(0,229,204,0.05);
+    border: 1px solid var(--border);
+    color: var(--teal);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 8px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .game-input:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 8px var(--teal-dim);
+  }
+
+  /* ---- RADAR RING (decorative) ---- */
+  .radar-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--teal-dim);
+    pointer-events: none;
+    animation: radar-expand 3s linear infinite;
+  }
+
+  @keyframes radar-expand {
+    0% { transform: scale(0); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 0; }
+  }
+
+  /* ---- OVERLAY SCREENS ---- */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(2,11,20,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    font-family: 'Orbitron', monospace;
+  }
+
+  .overlay h2 {
+    font-size: 28px;
+    letter-spacing: 8px;
+    color: var(--teal);
+    text-shadow: 0 0 30px var(--teal-glow);
+    margin-bottom: 12px;
+  }
+
+  .overlay .sub-text {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--dim);
+    font-size: 12px;
+    letter-spacing: 3px;
+    margin-bottom: 32px;
+  }
+
+  .overlay-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .overlay-stat {
+    text-align: center;
+    padding: 16px 24px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .overlay-stat-val {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--teal);
+    text-shadow: 0 0 20px var(--teal-glow);
+  }
+
+  .overlay-stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-top: 6px;
+  }
+
+  /* ---- KEYS HELP ---- */
+  .key-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--dim);
+  }
+
+  .key {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    font-size: 9px;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+
+  /* ---- MINI MAP COMPASS ---- */
+  .compass {
+    width: 48px; height: 48px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* ---- SCROLLBAR ---- */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+
+  /* ---- ANIMATIONS ---- */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in { animation: fadeIn 0.4s ease forwards; }
+
+  #step-bar {
+    height: 3px;
+    background: var(--bg3);
+    position: relative;
+  }
+
+  #step-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--teal), var(--blue));
+    box-shadow: 0 0 6px var(--teal-glow);
+    transition: width 0.1s;
+  }
+
+  .commander-hint {
+    background: rgba(255,140,0,0.1);
+    border: 1px solid rgba(255,140,0,0.3);
+    padding: 8px 10px;
+    font-size: 10px;
+    color: var(--orange);
+    letter-spacing: 1px;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="title-block">
+    <h1>◈ FLEET MIND</h1>
+    <div class="sub"><span class="status-dot"></span>DUAL-USV COORDINATED PATROL SYSTEM — AI TRAINING ACTIVE</div>
+  </div>
+  <div class="header-stats">
+    <div class="hstat">
+      <div class="hstat-val" id="h-episode">000</div>
+      <div class="hstat-label">EPISODE</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="h-coverage">0%</div>
+      <div class="hstat-label">COVERAGE</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="h-reward">0.00</div>
+      <div class="hstat-label">REWARD</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="h-score">---</div>
+      <div class="hstat-label">CALLSIGN</div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP PROGRESS -->
+<div id="step-bar"><div id="step-fill" style="width:0%"></div></div>
+
+<!-- MAIN LAYOUT -->
+<div id="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    <div>
+      <div class="panel-title">MISSION MODE</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <button class="mode-btn active" onclick="setMode('training')" id="btn-training">
+          <span class="mode-icon">◉</span>TRAINING
+        </button>
+        <button class="mode-btn" onclick="setMode('challenge')" id="btn-challenge">
+          <span class="mode-icon">◈</span>CHALLENGE
+        </button>
+        <button class="mode-btn" onclick="setMode('commander')" id="btn-commander">
+          <span class="mode-icon">◆</span>COMMANDER
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">USV-1 STATUS</div>
+      <div class="usv-card usv1">
+        <div class="usv-name">◉ USV-ALPHA</div>
+        <div class="stat-row">
+          <span class="stat-label">POS X</span>
+          <span class="stat-val" id="u1x">---</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">POS Y</span>
+          <span class="stat-val" id="u1y">---</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">HEADING</span>
+          <span class="stat-val" id="u1h">000°</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">SPEED</span>
+          <span class="stat-val">10 KT</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">USV-2 STATUS</div>
+      <div class="usv-card usv2">
+        <div class="usv-name">◈ USV-BRAVO</div>
+        <div class="stat-row">
+          <span class="stat-label">POS X</span>
+          <span class="stat-val blue" id="u2x">---</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">POS Y</span>
+          <span class="stat-val blue" id="u2y">---</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">HEADING</span>
+          <span class="stat-val blue" id="u2h">000°</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">SPEED</span>
+          <span class="stat-val blue">10 KT</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">FORMATION</div>
+      <div class="stat-row">
+        <span class="stat-label">DISTANCE</span>
+        <span class="stat-val" id="formation-dist">---</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">STATUS</span>
+        <span class="stat-val" id="formation-status">HOLD</span>
+      </div>
+      <div style="margin-top:6px">
+        <div class="progress-bar">
+          <div class="progress-fill" id="formation-bar" style="width:50%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME CANVAS -->
+  <div id="game-area">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- CONTROLS -->
+    <div id="controls">
+      <button class="ctrl-btn" id="btn-play" onclick="togglePlay()">▶ DEPLOY</button>
+      <button class="ctrl-btn" onclick="resetMission()">↺ RESET</button>
+      <button class="ctrl-btn danger" onclick="abortMission()">■ ABORT</button>
+
+      <div style="margin-left:16px; display:flex; gap:12px; align-items:center;">
+        <span class="key-hint"><span class="key">SPACE</span> Play/Pause</span>
+        <span class="key-hint"><span class="key">R</span> Reset</span>
+        <span id="commander-keys" style="display:none">
+          <span class="key-hint"><span class="key">↑↓←→</span> Steer USV-1</span>
+        </span>
+      </div>
+
+      <div class="speed-selector">
+        <span style="font-size:9px;color:var(--dim);letter-spacing:2px;">SPEED</span>
+        <button class="speed-btn" onclick="setSpeed(0.5)">½×</button>
+        <button class="speed-btn active" onclick="setSpeed(1)" id="sp1">1×</button>
+        <button class="speed-btn" onclick="setSpeed(2)">2×</button>
+        <button class="speed-btn" onclick="setSpeed(4)">4×</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel panel-right">
+
+    <div>
+      <div class="panel-title">MISSION STATS</div>
+      <div class="stat-row">
+        <span class="stat-label">STEP</span>
+        <span class="stat-val" id="stat-step">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">COVERAGE</span>
+        <span class="stat-val" id="stat-cov">0%</span>
+      </div>
+      <div style="margin:6px 0 10px">
+        <div class="progress-bar">
+          <div class="progress-fill" id="cov-bar" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">REWARD</span>
+        <span class="stat-val" id="stat-reward">0.00</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">EPISODE</span>
+        <span class="stat-val" id="stat-ep">1</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">THREAT STATUS</div>
+      <div style="display:flex;flex-direction:column;gap:8px;" id="threat-list">
+        <div class="stat-row">
+          <span class="stat-label">HOSTILE-1</span>
+          <div class="threat-dot active" id="td-0"></div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">HOSTILE-2</span>
+          <div class="threat-dot active" id="td-1"></div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">HOSTILE-3</span>
+          <div class="threat-dot active" id="td-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title">AI NARRATION</div>
+      <div id="narration-box">Awaiting deployment order...<span class="typing-cursor"></span></div>
+    </div>
+
+    <div>
+      <div class="panel-title">CALLSIGN</div>
+      <input type="text" class="game-input" id="player-name" placeholder="Enter callsign..." maxlength="12" value="COMMANDER">
+      <button class="ctrl-btn" onclick="submitScore()" style="margin-top:8px;width:100%;text-align:center;">
+        ↑ SUBMIT SCORE
+      </button>
+    </div>
+
+    <div>
+      <div class="panel-title">LEADERBOARD</div>
+      <div id="leaderboard-list">
+        <div class="lb-row">
+          <div class="lb-rank gold">#1</div>
+          <div class="lb-name">GHOST-7</div>
+          <div class="lb-score">98.2</div>
+        </div>
+        <div class="lb-row">
+          <div class="lb-rank silver">#2</div>
+          <div class="lb-name">IRONSIDE</div>
+          <div class="lb-score">91.7</div>
+        </div>
+        <div class="lb-row">
+          <div class="lb-rank bronze">#3</div>
+          <div class="lb-name">NEPTUNE</div>
+          <div class="lb-score">87.4</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MISSION COMPLETE OVERLAY -->
+<div id="overlay-complete" class="overlay" style="display:none;">
+  <h2>MISSION COMPLETE</h2>
+  <div class="sub-text">DEBRIEF REPORT</div>
+  <div class="overlay-stats">
+    <div class="overlay-stat">
+      <div class="overlay-stat-val" id="ov-cov">0%</div>
+      <div class="overlay-stat-label">AREA COVERED</div>
+    </div>
+    <div class="overlay-stat">
+      <div class="overlay-stat-val" id="ov-threats">0/3</div>
+      <div class="overlay-stat-label">THREATS NEUTRALIZED</div>
+    </div>
+    <div class="overlay-stat">
+      <div class="overlay-stat-val" id="ov-reward">0.0</div>
+      <div class="overlay-stat-label">TOTAL REWARD</div>
+    </div>
+  </div>
+  <div id="ov-narration" style="max-width:480px;text-align:center;font-family:'Share Tech Mono';font-size:11px;color:#7ab8b0;line-height:1.8;margin-bottom:28px;"></div>
+  <div style="display:flex;gap:12px;">
+    <button class="ctrl-btn" onclick="nextEpisode()">▶ NEXT MISSION</button>
+    <button class="ctrl-btn danger" onclick="closeOverlay()">✕ CLOSE</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// FLEET MIND — CORE GAME ENGINE
+// ============================================================
+
+// ── BACKEND CONFIG ──────────────────────────────────────────
+// Change this to your Render URL after deployment:
+// const API_BASE = "https://fleet-mind-api.onrender.com/api";
+const API_BASE = "http://localhost:5000/api";
+
+// ── BACKEND API HELPERS ──────────────────────────────────────
+async function apiPost(path, body) {
+  try {
+    const res = await fetch(API_BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5000)
+    });
+    return await res.json();
+  } catch { return null; }
+}
+
+async function apiGet(path) {
+  try {
+    const res = await fetch(API_BASE + path, { signal: AbortSignal.timeout(5000) });
+    return await res.json();
+  } catch { return null; }
+}
+
+// Fetch Claude AI narration from backend
+async function fetchAINarration(event, extraData = {}) {
+  const data = await apiPost("/narration", {
+    event,
+    coverage_pct:        getCoveragePct(),
+    threats_neutralized: getThreatsNeutralized(),
+    step:                state.step,
+    formation_dist:      Math.hypot(state.usv1.x - state.usv2.x, state.usv1.y - state.usv2.y),
+    ...extraData
+  });
+  if (data?.text) queueNarration(data.text);
+}
+
+// Fetch Claude AI debrief from backend
+async function fetchAIDebrief() {
+  const data = await apiPost("/debrief", {
+    coverage_pct:        getCoveragePct(),
+    threats_neutralized: getThreatsNeutralized(),
+    total_reward:        state.reward,
+    steps:               state.step,
+    mode:                gameMode
+  });
+  if (data?.text) {
+    document.getElementById('ov-narration').textContent = data.text;
+  }
+}
+
+// Load leaderboard from backend
+async function loadLeaderboard() {
+  const data = await apiGet("/scores/leaderboard");
+  if (!data || !Array.isArray(data)) return;
+  const list = document.getElementById('leaderboard-list');
+  const rankColors = { 1: 'gold', 2: 'silver', 3: 'bronze' };
+  list.innerHTML = data.map(s => `
+    <div class="lb-row fade-in">
+      <div class="lb-rank ${rankColors[s.rank] || ''}">#${s.rank}</div>
+      <div class="lb-name">${s.player_name}</div>
+      <div class="lb-score">${s.total_reward}</div>
+    </div>
+  `).join('');
+}
+
+// Load training stats from backend
+async function loadTrainingStats() {
+  const data = await apiGet("/training/stats");
+  if (!data) return;
+  const el = document.getElementById('training-stats-box');
+  if (el && data.episode > 0) {
+    el.innerHTML = `
+      <div class="stat-row"><span class="stat-label">EPISODE</span><span class="stat-val">${data.episode}</span></div>
+      <div class="stat-row"><span class="stat-label">AVG REWARD</span><span class="stat-val blue">${data.mean_reward}</span></div>
+      <div class="stat-row"><span class="stat-label">AVG COVERAGE</span><span class="stat-val">${data.mean_coverage}%</span></div>
+    `;
+  }
+}
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// ---- CONSTANTS ----
+const WORLD = 500;
+const CELL_SIZE = 50;
+const CELLS = 10;
+const MAX_STEPS = 400;
+const MIN_FORM = 50;
+const MAX_FORM = 160;
+const THREAT_RANGE = 45;
+const USV_SPEED = 9;
+const TURN_RATE = 18;
+const SCAN_RADIUS = 55;
+
+// ---- GAME STATE ----
+let state = {};
+let isPlaying = false;
+let gameMode = 'training';
+let episode = 1;
+let totalReward = 0;
+let animFrame = null;
+let lastTime = 0;
+let speedMult = 1;
+let accTime = 0;
+let stepInterval = 80; // ms between steps
+
+// Commander mode keys
+let keys = {};
+
+// AI Narration queue
+let narrationQueue = [];
+let narrationTyping = false;
+
+// ---- INIT STATE ----
+function initState() {
+  return {
+    usv1: { x: 80, y: 190, heading: 0, trail: [] },
+    usv2: { x: 80, y: 310, heading: 0, trail: [] },
+    threats: generateThreats(),
+    coverage: Array(CELLS).fill(null).map(() => Array(CELLS).fill(0)),
+    step: 0,
+    reward: 0,
+    done: false,
+    scanPulses: []
+  };
+}
+
+function generateThreats() {
+  const threats = [];
+  const zones = [
+    [250, 460, 80, 200],
+    [250, 460, 200, 350],
+    [250, 460, 350, 470]
+  ];
+  zones.forEach(([x1, x2, y1, y2]) => {
+    threats.push({
+      x: x1 + Math.random() * (x2 - x1),
+      y: y1 + Math.random() * (y2 - y1),
+      active: true,
+      pulse: 0
+    });
+  });
+  return threats;
+}
+
+// ---- RL POLICY (Simulated trained agent) ----
+// This simulates a trained PPO agent's behavior
+function getAction(usv, other, threats, coverage, isAlpha) {
+  const activeThreats = threats.filter(t => t.active);
+  
+  // Find nearest uncovered cell
+  let bestTarget = null;
+  let bestDist = Infinity;
+  
+  // Each USV focuses on different halves to coordinate
+  for (let cy = 0; cy < CELLS; cy++) {
+    for (let cx = 0; cx < CELLS; cx++) {
+      if (coverage[cy][cx] === 0) {
+        const tx = cx * CELL_SIZE + 25;
+        const ty = cy * CELL_SIZE + 25;
+        // USV1 prefers top half, USV2 bottom half (learned formation behavior)
+        const bias = isAlpha ? (ty < 250 ? 0.7 : 1.3) : (ty > 250 ? 0.7 : 1.3);
+        const d = Math.hypot(usv.x - tx, usv.y - ty) * bias;
+        if (d < bestDist) {
+          bestDist = d;
+          bestTarget = { x: tx, y: ty };
+        }
+      }
+    }
+  }
+  
+  // If there's a close threat, prioritize it
+  let target = bestTarget;
+  for (const t of activeThreats) {
+    const d = Math.hypot(usv.x - t.x, usv.y - t.y);
+    if (d < 120) {
+      target = { x: t.x, y: t.y };
+      break;
+    }
+  }
+  
+  // Formation correction — stay within bounds relative to partner
+  const formDist = Math.hypot(usv.x - other.x, usv.y - other.y);
+  if (formDist > MAX_FORM * 1.3) {
+    // Move toward partner
+    target = { x: other.x, y: other.y };
+  }
+  
+  if (!target) return 3; // hold
+  
+  // Compute desired heading
+  const dx = target.x - usv.x;
+  const dy = target.y - usv.y;
+  const desiredAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+  
+  // Angle difference
+  let diff = ((desiredAngle - usv.heading) + 360) % 360;
+  if (diff > 180) diff -= 360;
+  
+  // Add slight noise for realism (simulating stochastic policy)
+  const noise = (Math.random() - 0.5) * 8;
+  const noisyDiff = diff + noise;
+  
+  if (Math.abs(noisyDiff) < 12) return 0;   // forward
+  if (noisyDiff > 0) return 2;               // turn right
+  return 1;                                  // turn left
+}
+
+// Commander mode action
+function getCommanderAction() {
+  if (keys['ArrowUp']) return 0;
+  if (keys['ArrowLeft']) return 1;
+  if (keys['ArrowRight']) return 2;
+  return 3;
+}
+
+// ---- STEP FUNCTION ----
+function step() {
+  if (state.done) return;
+
+  const action1 = (gameMode === 'commander')
+    ? getCommanderAction()
+    : getAction(state.usv1, state.usv2, state.threats, state.coverage, true);
+  
+  const action2 = getAction(state.usv2, state.usv1, state.threats, state.coverage, false);
+
+  moveUSV(state.usv1, action1);
+  moveUSV(state.usv2, action2);
+
+  // Coverage
+  let covReward = 0;
+  covReward += updateCoverage(state.usv1);
+  covReward += updateCoverage(state.usv2);
+
+  // Formation reward
+  const dist = Math.hypot(state.usv1.x - state.usv2.x, state.usv1.y - state.usv2.y);
+  let formReward = 0;
+  if (dist < 20) formReward -= 0.5;
+  else if (dist >= MIN_FORM && dist <= MAX_FORM) formReward += 0.2;
+  else if (dist > MAX_FORM) formReward -= 0.2;
+
+  // Threat neutralization
+  let threatReward = 0;
+  state.threats.forEach((t, i) => {
+    if (!t.active) return;
+    const d1 = Math.hypot(state.usv1.x - t.x, state.usv1.y - t.y);
+    const d2 = Math.hypot(state.usv2.x - t.x, state.usv2.y - t.y);
+    if (d1 < THREAT_RANGE || d2 < THREAT_RANGE) {
+      t.active = false;
+      threatReward += 1.0;
+      addScanPulse(t.x, t.y, '#ff3b3b');
+      queueNarration(getThreatNarration(i));
+    }
+  });
+
+  // Add scan pulses occasionally
+  if (state.step % 20 === 0) {
+    addScanPulse(state.usv1.x, state.usv1.y, '#00e5cc');
+    addScanPulse(state.usv2.x, state.usv2.y, '#1a9fff');
+  }
+
+  const stepReward = covReward + formReward + threatReward;
+  state.reward += stepReward;
+  totalReward += stepReward;
+  state.step++;
+
+  // Update scan pulses
+  state.scanPulses = state.scanPulses.filter(p => p.r < 80);
+  state.scanPulses.forEach(p => { p.r += 2; p.alpha -= 0.025; });
+
+  // Check done
+  if (state.step >= MAX_STEPS) {
+    state.done = true;
+    onMissionComplete();
+  }
+
+  updateHUD();
+}
+
+function moveUSV(usv, action) {
+  if (action === 0) {
+    const rad = usv.heading * Math.PI / 180;
+    usv.x += Math.cos(rad) * USV_SPEED;
+    usv.y += Math.sin(rad) * USV_SPEED;
+    usv.x = Math.max(12, Math.min(WORLD - 12, usv.x));
+    usv.y = Math.max(12, Math.min(WORLD - 12, usv.y));
+  } else if (action === 1) {
+    usv.heading = (usv.heading - TURN_RATE + 360) % 360;
+  } else if (action === 2) {
+    usv.heading = (usv.heading + TURN_RATE) % 360;
+  }
+
+  // Trail
+  usv.trail.push({ x: usv.x, y: usv.y });
+  if (usv.trail.length > 40) usv.trail.shift();
+}
+
+function updateCoverage(usv) {
+  let gained = 0;
+  const cx = Math.min(CELLS - 1, Math.floor(usv.x / CELL_SIZE));
+  const cy = Math.min(CELLS - 1, Math.floor(usv.y / CELL_SIZE));
+  if (state.coverage[cy][cx] === 0) {
+    state.coverage[cy][cx] = 1;
+    gained += 0.1;
+  }
+  // Scan radius covers neighbors
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && nx < CELLS && ny >= 0 && ny < CELLS) {
+        const cellCX = nx * CELL_SIZE + 25;
+        const cellCY = ny * CELL_SIZE + 25;
+        if (Math.hypot(usv.x - cellCX, usv.y - cellCY) < SCAN_RADIUS) {
+          if (state.coverage[ny][nx] === 0) {
+            state.coverage[ny][nx] = 0.5; // partial
+          }
+        }
+      }
+    }
+  }
+  return gained;
+}
+
+function addScanPulse(x, y, color) {
+  state.scanPulses.push({ x, y, r: 4, alpha: 0.8, color });
+}
+
+// ---- COVERAGE CALC ----
+function getCoveragePct() {
+  let covered = 0;
+  for (let r = 0; r < CELLS; r++)
+    for (let c = 0; c < CELLS; c++)
+      if (state.coverage[r][c] > 0) covered++;
+  return (covered / (CELLS * CELLS)) * 100;
+}
+
+function getThreatsNeutralized() {
+  return state.threats.filter(t => !t.active).length;
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  const scaleX = W / WORLD, scaleY = H / WORLD;
+
+  const sx = x => x * scaleX;
+  const sy = y => y * scaleY;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Ocean background
+  const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W*0.7);
+  grad.addColorStop(0, '#051c2c');
+  grad.addColorStop(1, '#020b14');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid cells (coverage)
+  for (let r = 0; r < CELLS; r++) {
+    for (let c = 0; c < CELLS; c++) {
+      const val = state.coverage[r][c];
+      if (val > 0) {
+        ctx.fillStyle = val === 1
+          ? 'rgba(0,229,204,0.12)'
+          : 'rgba(0,229,204,0.05)';
+        ctx.fillRect(sx(c * CELL_SIZE), sy(r * CELL_SIZE), sx(CELL_SIZE), sy(CELL_SIZE));
+      }
+    }
+  }
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(0,229,204,0.06)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= CELLS; i++) {
+    ctx.beginPath();
+    ctx.moveTo(sx(i * CELL_SIZE), 0);
+    ctx.lineTo(sx(i * CELL_SIZE), H);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, sy(i * CELL_SIZE));
+    ctx.lineTo(W, sy(i * CELL_SIZE));
+    ctx.stroke();
+  }
+
+  // Coordinate labels
+  ctx.fillStyle = 'rgba(0,229,204,0.15)';
+  ctx.font = `${Math.max(7, W * 0.015)}px 'Share Tech Mono'`;
+  for (let i = 0; i < CELLS; i++) {
+    ctx.fillText(String.fromCharCode(65 + i), sx(i * CELL_SIZE + 2), sy(CELL_SIZE) - 3);
+    ctx.fillText(i + 1, 2, sy(i * CELL_SIZE + 3));
+  }
+
+  // Formation line
+  const fDist = Math.hypot(state.usv1.x - state.usv2.x, state.usv1.y - state.usv2.y);
+  const formOK = fDist >= MIN_FORM && fDist <= MAX_FORM;
+  ctx.setLineDash([4, 6]);
+  ctx.strokeStyle = formOK ? 'rgba(0,229,204,0.25)' : 'rgba(255,140,0,0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(sx(state.usv1.x), sy(state.usv1.y));
+  ctx.lineTo(sx(state.usv2.x), sy(state.usv2.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Scan radius circles
+  ctx.strokeStyle = 'rgba(0,229,204,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(sx(state.usv1.x), sy(state.usv1.y), sx(SCAN_RADIUS), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(26,159,255,0.08)';
+  ctx.beginPath();
+  ctx.arc(sx(state.usv2.x), sy(state.usv2.y), sx(SCAN_RADIUS), 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Scan pulses
+  state.scanPulses.forEach(p => {
+    ctx.strokeStyle = p.color.replace(')', `,${p.alpha})`).replace('rgb', 'rgba').replace('##', '#');
+    ctx.globalAlpha = p.alpha;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(sx(p.x), sy(p.y), p.r * scaleX, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // Threats
+  state.threats.forEach((t, i) => {
+    if (!t.active) {
+      // Neutralized indicator
+      ctx.strokeStyle = 'rgba(0,229,204,0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(sx(t.x), sy(t.y), sx(12), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(0,229,204,0.5)';
+      ctx.font = `bold ${sx(12)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('✓', sx(t.x), sy(t.y) + 4);
+      ctx.textAlign = 'left';
+      return;
+    }
+    
+    // Active threat — pulsing crosshair
+    const pulse = (Math.sin(Date.now() * 0.003 + i) * 0.5 + 0.5);
+    const r = sx(10 + pulse * 5);
+    
+    ctx.strokeStyle = `rgba(255,59,59,${0.5 + pulse * 0.5})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(sx(t.x), sy(t.y), r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Crosshair lines
+    ctx.strokeStyle = `rgba(255,59,59,${0.7 + pulse * 0.3})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx(t.x), sy(t.y) - r - 5);
+    ctx.lineTo(sx(t.x), sy(t.y) - r + 2);
+    ctx.moveTo(sx(t.x), sy(t.y) + r - 2);
+    ctx.lineTo(sx(t.x), sy(t.y) + r + 5);
+    ctx.moveTo(sx(t.x) - r - 5, sy(t.y));
+    ctx.lineTo(sx(t.x) - r + 2, sy(t.y));
+    ctx.moveTo(sx(t.x) + r - 2, sy(t.y));
+    ctx.lineTo(sx(t.x) + r + 5, sy(t.y));
+    ctx.stroke();
+
+    ctx.fillStyle = `rgba(255,59,59,0.9)`;
+    ctx.font = `${sx(7)}px 'Share Tech Mono'`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`H-${i+1}`, sx(t.x), sy(t.y) - r - 7);
+    ctx.textAlign = 'left';
+  });
+
+  // USV Trails
+  drawTrail(state.usv1.trail, '#00e5cc', scaleX, scaleY);
+  drawTrail(state.usv2.trail, '#1a9fff', scaleX, scaleY);
+
+  // USVs
+  drawUSV(sx(state.usv1.x), sy(state.usv1.y), state.usv1.heading, '#00e5cc', 'USV-α', W);
+  drawUSV(sx(state.usv2.x), sy(state.usv2.y), state.usv2.heading, '#1a9fff', 'USV-β', W);
+}
+
+function drawTrail(trail, color, sx, sy) {
+  if (trail.length < 2) return;
+  for (let i = 1; i < trail.length; i++) {
+    const alpha = (i / trail.length) * 0.35;
+    ctx.strokeStyle = color.replace(')', `,${alpha})`).replace('rgb', 'rgba');
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(trail[i-1].x * sx, trail[i-1].y * sy);
+    ctx.lineTo(trail[i].x * sx, trail[i].y * sy);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawUSV(x, y, heading, color, label, W) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(heading * Math.PI / 180);
+
+  const s = W / 500 * 14; // scale
+
+  // Glow
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 2.5);
+  glow.addColorStop(0, color.replace(')', ',0.2)').replace('rgb', 'rgba'));
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hull body (CAD top-down vessel shape)
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(s * 1.8, 0);        // bow
+  ctx.lineTo(s * 0.8, -s * 0.7);
+  ctx.lineTo(-s * 1.6, -s * 0.45);
+  ctx.lineTo(-s * 1.6, s * 0.45);
+  ctx.lineTo(s * 0.8, s * 0.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Bridge (superstructure)
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillRect(-s * 0.3, -s * 0.35, s * 0.9, s * 0.7);
+
+  // Bow light
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(s * 1.6, 0, s * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // Label
+  ctx.fillStyle = color;
+  ctx.font = `${W * 0.018}px 'Share Tech Mono'`;
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x, y - s * 2.2 - 2);
+  ctx.textAlign = 'left';
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+
+function gameLoop(timestamp) {
+  if (!isPlaying) return;
+  
+  const delta = timestamp - lastTime;
+  lastTime = timestamp;
+  accTime += delta * speedMult;
+
+  while (accTime >= stepInterval) {
+    step();
+    accTime -= stepInterval;
+    if (state.done) {
+      isPlaying = false;
+      break;
+    }
+  }
+
+  render();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function togglePlay() {
+  if (state.done) { nextEpisode(); return; }
+  isPlaying = !isPlaying;
+  const btn = document.getElementById('btn-play');
+  if (isPlaying) {
+    btn.textContent = '⏸ PAUSE';
+    lastTime = performance.now();
+    accTime = 0;
+    animFrame = requestAnimationFrame(gameLoop);
+    queueNarration(getMissionStartNarration());
+  } else {
+    btn.textContent = '▶ RESUME';
+    if (animFrame) cancelAnimationFrame(animFrame);
+  }
+}
+
+function resetMission() {
+  isPlaying = false;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  state = initState();
+  document.getElementById('btn-play').textContent = '▶ DEPLOY';
+  document.getElementById('overlay-complete').style.display = 'none';
+  updateHUD();
+  render();
+  resetThreatDots();
+  narrationQueue = [];
+  setNarration('Systems reset. Awaiting deployment order...');
+}
+
+function abortMission() {
+  isPlaying = false;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  document.getElementById('btn-play').textContent = '▶ DEPLOY';
+  queueNarration('⚠ Mission aborted by operator. Standing by for new orders.');
+}
+
+function nextEpisode() {
+  episode++;
+  document.getElementById('overlay-complete').style.display = 'none';
+  document.getElementById('stat-ep').textContent = episode;
+  document.getElementById('h-episode').textContent = String(episode).padStart(3, '0');
+  resetMission();
+}
+
+function closeOverlay() {
+  document.getElementById('overlay-complete').style.display = 'none';
+}
+
+// ---- HUD UPDATE ----
+function updateHUD() {
+  const covPct = getCoveragePct();
+  const threats = getThreatsNeutralized();
+  const dist = Math.hypot(state.usv1.x - state.usv2.x, state.usv1.y - state.usv2.y);
+
+  // Header
+  document.getElementById('h-coverage').textContent = covPct.toFixed(0) + '%';
+  document.getElementById('h-reward').textContent = state.reward.toFixed(1);
+  document.getElementById('h-score').textContent = document.getElementById('player-name').value.toUpperCase() || '---';
+  document.getElementById('h-episode').textContent = String(episode).padStart(3, '0');
+
+  // Stats panel
+  document.getElementById('stat-step').textContent = state.step;
+  document.getElementById('stat-cov').textContent = covPct.toFixed(1) + '%';
+  document.getElementById('stat-reward').textContent = state.reward.toFixed(2);
+  document.getElementById('stat-ep').textContent = episode;
+  document.getElementById('cov-bar').style.width = covPct + '%';
+
+  // Step bar
+  document.getElementById('step-fill').style.width = ((state.step / MAX_STEPS) * 100) + '%';
+
+  // USV positions
+  document.getElementById('u1x').textContent = Math.round(state.usv1.x);
+  document.getElementById('u1y').textContent = Math.round(state.usv1.y);
+  document.getElementById('u1h').textContent = Math.round(state.usv1.heading) + '°';
+  document.getElementById('u2x').textContent = Math.round(state.usv2.x);
+  document.getElementById('u2y').textContent = Math.round(state.usv2.y);
+  document.getElementById('u2h').textContent = Math.round(state.usv2.heading) + '°';
+
+  // Formation
+  const formOK = dist >= MIN_FORM && dist <= MAX_FORM;
+  const formEl = document.getElementById('formation-status');
+  const formDistEl = document.getElementById('formation-dist');
+  formDistEl.textContent = Math.round(dist) + 'm';
+  if (dist < 20) {
+    formEl.textContent = 'COLLISION RISK';
+    formEl.className = 'stat-val danger';
+  } else if (formOK) {
+    formEl.textContent = 'OPTIMAL';
+    formEl.className = 'stat-val';
+  } else if (dist > MAX_FORM) {
+    formEl.textContent = 'DISPERSED';
+    formEl.className = 'stat-val warn';
+  } else {
+    formEl.textContent = 'CLOSING';
+    formEl.className = 'stat-val blue';
+  }
+  const formPct = Math.max(0, Math.min(100, ((dist - MIN_FORM) / (MAX_FORM - MIN_FORM)) * 100));
+  document.getElementById('formation-bar').style.width = formPct + '%';
+
+  // Threat dots
+  state.threats.forEach((t, i) => {
+    const dot = document.getElementById(`td-${i}`);
+    if (!t.active) {
+      dot.className = 'threat-dot neutralized';
+    }
+  });
+}
+
+function resetThreatDots() {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`td-${i}`).className = 'threat-dot active';
+  }
+}
+
+// ---- MODE SELECTION ----
+function setMode(mode) {
+  gameMode = mode;
+  ['training', 'challenge', 'commander'].forEach(m => {
+    document.getElementById(`btn-${m}`).classList.toggle('active', m === mode);
+  });
+  document.getElementById('commander-keys').style.display = mode === 'commander' ? 'inline' : 'none';
+
+  const msgs = {
+    training: 'Training mode active. AI agent controls both USVs. Observe coordination behavior.',
+    challenge: 'Challenge mode: Trained model deployed. Threats randomized. Score tracked.',
+    commander: 'Commander mode: You steer USV-ALPHA with arrow keys. AI controls USV-BRAVO.'
+  };
+  setNarration(msgs[mode]);
+  resetMission();
+}
+
+function setSpeed(mult) {
+  speedMult = mult;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+  const map = { 0.5: '½×', 1: '1×', 2: '2×', 4: '4×' };
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    if (b.textContent === map[mult]) b.classList.add('active');
+  });
+}
+
+// ---- MISSION COMPLETE ----
+function onMissionComplete() {
+  const covPct = getCoveragePct();
+  const threats = getThreatsNeutralized();
+
+  document.getElementById('ov-cov').textContent = covPct.toFixed(1) + '%';
+  document.getElementById('ov-threats').textContent = threats + '/3';
+  document.getElementById('ov-reward').textContent = state.reward.toFixed(1);
+  document.getElementById('ov-narration').textContent = 'Generating AI debrief…';
+
+  // Fetch Claude debrief
+  fetchAIDebrief();
+
+  setTimeout(() => {
+    document.getElementById('overlay-complete').style.display = 'flex';
+  }, 800);
+
+  // Auto-next in training mode
+  if (gameMode === 'training') {
+    setTimeout(() => { nextEpisode(); togglePlay(); }, 5000);
+  }
+}
+
+// ---- AI NARRATION SYSTEM ----
+const NARRATIONS = {
+  missionStart: [
+    'USVs deployed. Initiating coordinated sweep pattern. AI agent online.',
+    'Formation established. Beginning sector-by-sector area denial sweep.',
+    'Both vessels operational. Executing learned patrol policy. Coverage expanding.',
+  ],
+  threat: [
+    ['Threat neutralized. USV-ALPHA moved into firing solution range.', 
+     'Contact eliminated. Hostile-2 position secured.', 
+     'Threat three down. Sector cleared. Continuing patrol.'],
+  ]
+};
+
+function getMissionStartNarration() {
+  return NARRATIONS.missionStart[Math.floor(Math.random() * NARRATIONS.missionStart.length)];
+}
+
+function getThreatNarration(i) {
+  const opts = [
+    `◉ HOSTILE-${i+1} neutralized. USV in range. Sector ${String.fromCharCode(65 + Math.floor(state.threats[i].x / CELL_SIZE))}${Math.floor(state.threats[i].y / CELL_SIZE) + 1} cleared.`,
+    `◈ Contact eliminated. Threat ${i+1} down. Formation holding. Continuing sweep.`,
+    `◆ USV patrol AI detected and neutralized HOSTILE-${i+1}. Reward +1.0 registered.`
+  ];
+  return opts[i % opts.length];
+}
+
+function getDebriefText(cov, threats, reward) {
+  if (cov >= 80 && threats === 3) return `Mission success. ${cov.toFixed(0)}% area covered. All hostiles neutralized. Coordination index: OPTIMAL. The AI demonstrated learned formation discipline throughout the engagement.`;
+  if (cov >= 60) return `Partial success. ${cov.toFixed(0)}% coverage achieved. ${threats} of 3 threats eliminated. Formation maintained during ${Math.round(reward / MAX_STEPS * 100)}% of mission. Further training recommended.`;
+  return `Mission incomplete. Coverage at ${cov.toFixed(0)}%. AI policy requires additional training iterations. Collision avoidance and sector prioritization need improvement.`;
+}
+
+function queueNarration(text) {
+  narrationQueue.push(text);
+  if (!narrationTyping) typeNextNarration();
+}
+
+function typeNextNarration() {
+  if (narrationQueue.length === 0) { narrationTyping = false; return; }
+  narrationTyping = true;
+  const text = narrationQueue.shift();
+  setNarration(text, true);
+}
+
+function setNarration(text, typed = false) {
+  const box = document.getElementById('narration-box');
+  if (!typed) {
+    box.innerHTML = text + '<span class="typing-cursor"></span>';
+    return;
+  }
+  box.innerHTML = '<span class="typing-cursor"></span>';
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= text.length) {
+      clearInterval(interval);
+      box.innerHTML = text + '<span class="typing-cursor"></span>';
+      setTimeout(() => typeNextNarration(), 2000);
+      return;
+    }
+    box.innerHTML = text.substring(0, i + 1) + '<span class="typing-cursor"></span>';
+    i++;
+  }, 18);
+}
+
+// ---- SCORE SUBMISSION ----
+async function submitScore() {
+  const name = document.getElementById('player-name').value || 'ANONYMOUS';
+  const cov = getCoveragePct();
+  const threats = getThreatsNeutralized();
+  const reward = state.reward;
+
+  // Submit to backend
+  const result = await apiPost("/scores/submit", {
+    player_name:         name,
+    coverage_pct:        cov,
+    threats_neutralized: threats,
+    total_reward:        reward,
+    mode:                gameMode,
+    episode:             episode
+  });
+
+  if (result?.success) {
+    queueNarration(`◉ Score confirmed for ${name.toUpperCase()}. Coverage: ${cov.toFixed(0)}%. Uploaded to command database.`);
+    await loadLeaderboard();
+  } else {
+    // Fallback — show locally
+    const list = document.getElementById('leaderboard-list');
+    const div = document.createElement('div');
+    div.className = 'lb-row fade-in';
+    div.innerHTML = `<div class="lb-rank">NEW</div><div class="lb-name">${name.toUpperCase()}</div><div class="lb-score">${reward.toFixed(1)}</div>`;
+    list.insertBefore(div, list.firstChild);
+    queueNarration(`Score saved locally. Backend offline.`);
+  }
+}
+
+// ---- KEYBOARD CONTROLS ----
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'r' || e.key === 'R') resetMission();
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ---- RESIZE ----
+function resizeCanvas() {
+  const area = document.getElementById('game-area');
+  const controls = document.getElementById('controls');
+  const W = area.clientWidth;
+  const H = area.clientHeight - controls.clientHeight - 3;
+  const size = Math.min(W, H);
+  canvas.width = size;
+  canvas.height = size;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  canvas.style.margin = 'auto';
+  canvas.style.display = 'block';
+  render();
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// ---- INIT ----
+state = initState();
+setTimeout(() => {
+  resizeCanvas();
+  render();
+  updateHUD();
+  // Load real backend data
+  loadLeaderboard();
+  loadTrainingStats();
+  // Poll training stats every 8 seconds
+  setInterval(loadTrainingStats, 8000);
+}, 100);
+
+// Auto-start training mode after brief delay
+setTimeout(() => {
+  if (gameMode === 'training') togglePlay();
+}, 1200);
+</script>
+</body>
+</html>

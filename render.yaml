@@ -1,0 +1,44 @@
+# render.yaml — Render.com deployment config
+# Push this to GitHub, then connect the repo in Render dashboard.
+# Render will auto-deploy on every push to main.
+
+services:
+  # ── Flask API (Web Service) ──────────────────────────────────────
+  - type: web
+    name: fleet-mind-api
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn backend.app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+    envVars:
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true          # Render auto-generates a secure value
+      - key: ANTHROPIC_API_KEY
+        sync: false                  # Set manually in Render dashboard
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fleet-mind-db
+          property: connectionString
+    autoDeploy: true
+    healthCheckPath: /api/health
+
+  # ── RL Training Worker (Background Worker) ──────────────────────
+  # Uncomment to run training in the background (uses free worker hours)
+  # - type: worker
+  #   name: fleet-mind-trainer
+  #   runtime: python
+  #   buildCommand: "pip install -r requirements.txt"
+  #   startCommand: "python train/train_agents.py --mode both --timesteps 300000"
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: fleet-mind-db
+  #         property: connectionString
+
+databases:
+  # ── PostgreSQL Database ─────────────────────────────────────────
+  - name: fleet-mind-db
+    databaseName: fleet_mind
+    user: fleet_admin
+    plan: free                       # Free tier: 256MB, auto-suspends after 90d

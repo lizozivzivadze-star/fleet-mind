@@ -1,0 +1,21 @@
+# Fleet Mind — Python Dependencies
+# Install with:  pip install -r requirements.txt
+
+# ── Core RL ──────────────────────────────────────
+stable-baselines3==2.3.2
+gymnasium==0.29.1
+torch>=2.0.0
+numpy>=1.24.0
+
+# ── Backend API ──────────────────────────────────
+flask==3.0.3
+flask-cors==4.0.1
+flask-sqlalchemy==3.1.1
+psycopg2-binary==2.9.9      # PostgreSQL driver (Render)
+gunicorn==22.0.0             # Production WSGI server
+
+# ── AI Narration ─────────────────────────────────
+anthropic>=0.28.0
+
+# ── Utilities ────────────────────────────────────
+python-dotenv==1.0.1         # Load .env in dev
