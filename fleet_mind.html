@@ -143,7 +143,8 @@
     display: grid;
     grid-template-columns: 220px 1fr 260px;
     gap: 0;
-    height: calc(100vh - 60px);
+    height: calc(100vh - 63px);
+    overflow: hidden;
   }
 
   /* ---- PANELS ---- */
@@ -265,8 +266,15 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    background: var(--bg2);
+    background: var(--bg);
     overflow: hidden;
+    flex: 1;
+  }
+
+  #game-canvas {
+    flex: 1;
+    width: 100% !important;
+    display: block;
   }
 
   #game-canvas {
@@ -614,9 +622,114 @@
     letter-spacing: 1px;
     line-height: 1.7;
   }
+
+  /* ---- TOOLTIP SYSTEM ---- */
+  .has-tip { position: relative; cursor: help; }
+  .has-tip::after { content: ' ⓘ'; font-size: 10px; color: var(--teal); opacity: 0.6; }
+
+  .tip-bubble {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    background: #041c2e;
+    border: 1px solid var(--teal);
+    border-radius: 4px;
+    padding: 10px 14px;
+    max-width: 260px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: #c8e8e0;
+    line-height: 1.7;
+    box-shadow: 0 0 20px rgba(0,229,204,0.25);
+    pointer-events: none;
+  }
+  .tip-bubble.visible { display: block; animation: fadeIn 0.15s ease forwards; }
+  .tip-bubble .tip-title { font-size: 9px; color: var(--teal); letter-spacing: 2px; margin-bottom: 6px; font-weight: bold; display: block; }
+  .tip-emoji { font-size: 20px; display: block; margin-bottom: 6px; }
+
+  /* ---- WELCOME OVERLAY ---- */
+  #welcome-overlay {
+    position: fixed; inset: 0;
+    background: rgba(2,11,20,0.97);
+    z-index: 20000;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #welcome-box {
+    border: 1px solid var(--teal);
+    background: #041220;
+    padding: 36px 44px;
+    max-width: 560px; width: 90%;
+    box-shadow: 0 0 60px rgba(0,229,204,0.15);
+    text-align: center;
+  }
+  #welcome-box h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px; color: var(--teal);
+    letter-spacing: 6px; text-shadow: 0 0 20px var(--teal-glow);
+    margin-bottom: 6px;
+  }
+  .welcome-sub { font-size: 10px; color: var(--dim); letter-spacing: 3px; margin-bottom: 24px; }
+  .welcome-intro { font-size: 12px; color: #a0c8c0; line-height: 1.9; margin-bottom: 16px; text-align: left; }
+  .welcome-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0; text-align: left; }
+  .welcome-item { background: rgba(0,229,204,0.04); border: 1px solid var(--border); padding: 9px 11px; }
+  .wi-label { font-size: 9px; color: var(--teal); letter-spacing: 2px; margin-bottom: 3px; }
+  .wi-desc { font-size: 10px; color: #8ab8b0; line-height: 1.5; }
+  .welcome-tip { font-size: 10px; color: var(--dim); margin: 16px 0 24px; letter-spacing: 1px; }
+  .start-btn {
+    background: var(--teal-dim); border: 1px solid var(--teal);
+    color: var(--teal); font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; letter-spacing: 4px; padding: 13px 40px;
+    cursor: pointer; transition: all 0.2s; width: 100%;
+  }
+  .start-btn:hover { background: rgba(0,229,204,0.2); box-shadow: 0 0 20px var(--teal-glow); }
 </style>
 </head>
 <body>
+
+<!-- WELCOME OVERLAY -->
+<div id="welcome-overlay">
+  <div id="welcome-box">
+    <h2>◈ FLEET MIND</h2>
+    <div class="welcome-sub">DUAL-USV COORDINATED PATROL SYSTEM</div>
+    <p class="welcome-intro">Welcome, Commander! You are watching two AI-controlled patrol boats learn to work as a team — covering the ocean, staying in formation, and hunting down threats — all on their own, no human telling them what to do.</p>
+    <div class="welcome-grid">
+      <div class="welcome-item">
+        <div class="wi-label">🚢 USV-ALPHA</div>
+        <div class="wi-desc">The teal boat. In Commander mode, YOU steer this one with arrow keys.</div>
+      </div>
+      <div class="welcome-item">
+        <div class="wi-label">🚢 USV-BRAVO</div>
+        <div class="wi-desc">The blue boat. Always controlled by AI — it tries to cooperate with Alpha.</div>
+      </div>
+      <div class="welcome-item">
+        <div class="wi-label">🎯 THREATS</div>
+        <div class="wi-desc">Red pulsing targets on the map. Boats must get close to neutralize them.</div>
+      </div>
+      <div class="welcome-item">
+        <div class="wi-label">🟦 COVERAGE</div>
+        <div class="wi-desc">Teal glow on the grid = scanned area. Goal is to light up 80% of the map.</div>
+      </div>
+      <div class="welcome-item">
+        <div class="wi-label">📡 FORMATION</div>
+        <div class="wi-desc">Boats must stay 50–150m apart — not too close, not too far. Teamwork!</div>
+      </div>
+      <div class="welcome-item">
+        <div class="wi-label">⭐ REWARD</div>
+        <div class="wi-desc">The AI's score — covering new area and neutralizing threats earns points.</div>
+      </div>
+    </div>
+    <div class="welcome-tip">💡 Hover over any label in the game to get a quick explanation</div>
+    <button class="start-btn" onclick="document.getElementById('welcome-overlay').style.display='none'">▶ START MISSION</button>
+  </div>
+</div>
+
+<!-- TOOLTIP BUBBLE (single shared popup) -->
+<div class="tip-bubble" id="tip-bubble">
+  <span class="tip-title" id="tip-title"></span>
+  <span class="tip-emoji" id="tip-emoji"></span>
+  <span id="tip-text"></span>
+</div>
 
 <!-- HEADER -->
 <div id="header">
@@ -653,7 +766,7 @@
   <!-- LEFT PANEL -->
   <div class="panel">
     <div>
-      <div class="panel-title">MISSION MODE</div>
+      <div class="panel-title has-tip" data-tip="mode" data-title="MISSION MODE" data-emoji="🎮" data-text="Choose how you want to play! Training = watch the AI learn on its own. Challenge = AI plays, you score. Commander = YOU steer the teal boat with arrow keys while AI steers the blue one.">MISSION MODE</div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         <button class="mode-btn active" onclick="setMode('training')" id="btn-training">
           <span class="mode-icon">◉</span>TRAINING
@@ -668,7 +781,7 @@
     </div>
 
     <div>
-      <div class="panel-title">USV-1 STATUS</div>
+      <div class="panel-title has-tip" data-tip="usv1" data-title="USV-ALPHA" data-emoji="🚢" data-text="This is your teal patrol boat! It shows where the boat is on the map (X and Y position), which direction it is pointing (heading), and how fast it is going. In Commander mode you control this boat with arrow keys.">USV-1 STATUS</div>
       <div class="usv-card usv1">
         <div class="usv-name">◉ USV-ALPHA</div>
         <div class="stat-row">
@@ -691,7 +804,7 @@
     </div>
 
     <div>
-      <div class="panel-title">USV-2 STATUS</div>
+      <div class="panel-title has-tip" data-tip="usv2" data-title="USV-BRAVO" data-emoji="🚢" data-text="This is the blue AI patrol boat. It always makes its own decisions — no human controls it. It tries to coordinate with Alpha by covering different parts of the map and staying in formation.">USV-2 STATUS</div>
       <div class="usv-card usv2">
         <div class="usv-name">◈ USV-BRAVO</div>
         <div class="stat-row">
@@ -714,7 +827,7 @@
     </div>
 
     <div>
-      <div class="panel-title">FORMATION</div>
+      <div class="panel-title has-tip" data-tip="form" data-title="FORMATION" data-emoji="📡" data-text="Formation means how far apart the two boats are. Too close = collision risk. Too far = they stop working as a team. The sweet spot is 50–150 metres apart. Green bar = perfect formation!">FORMATION</div>
       <div class="stat-row">
         <span class="stat-label">DISTANCE</span>
         <span class="stat-val" id="formation-dist">---</span>
@@ -737,9 +850,9 @@
 
     <!-- CONTROLS -->
     <div id="controls">
-      <button class="ctrl-btn" id="btn-play" onclick="togglePlay()">▶ DEPLOY</button>
-      <button class="ctrl-btn" onclick="resetMission()">↺ RESET</button>
-      <button class="ctrl-btn danger" onclick="abortMission()">■ ABORT</button>
+      <button class="ctrl-btn has-tip" id="btn-play" onclick="togglePlay()" data-tip="deploy" data-title="DEPLOY / PAUSE" data-emoji="▶" data-text="Sends the boats out on patrol! Press again to pause the mission mid-way. You can also press SPACEBAR on your keyboard to do this.">▶ DEPLOY</button>
+      <button class="ctrl-btn has-tip" onclick="resetMission()" data-tip="reset" data-title="RESET" data-emoji="↺" data-text="Starts a brand new mission from scratch — boats go back to starting position, the map clears, and new threats appear in random spots. Press R on your keyboard for the same effect.">↺ RESET</button>
+      <button class="ctrl-btn danger has-tip" onclick="abortMission()" data-tip="abort" data-title="ABORT MISSION" data-emoji="■" data-text="Stops the mission immediately without waiting for it to finish. The boats halt and the score is NOT saved. Use this if the boats get stuck or you want to try a different strategy.">■ ABORT</button>
 
       <div style="margin-left:16px; display:flex; gap:12px; align-items:center;">
         <span class="key-hint"><span class="key">SPACE</span> Play/Pause</span>
@@ -763,7 +876,7 @@
   <div class="panel panel-right">
 
     <div>
-      <div class="panel-title">MISSION STATS</div>
+      <div class="panel-title has-tip" data-tip="stats" data-title="MISSION STATS" data-emoji="📊" data-text="Live scoreboard for this mission. STEP counts how many moves have been made (max 400). COVERAGE shows how much of the ocean the boats have scanned. REWARD is the AI's total score. EPISODE counts how many missions have been played.">MISSION STATS</div>
       <div class="stat-row">
         <span class="stat-label">STEP</span>
         <span class="stat-val" id="stat-step">0</span>
@@ -788,7 +901,7 @@
     </div>
 
     <div>
-      <div class="panel-title">THREAT STATUS</div>
+      <div class="panel-title has-tip" data-tip="threats" data-title="THREAT STATUS" data-emoji="🎯" data-text="There are 3 enemy targets hidden on the map. Red pulsing dot = still active and dangerous. Green tick = neutralized! A boat neutralizes a threat by getting close enough to it during the patrol.">THREAT STATUS</div>
       <div style="display:flex;flex-direction:column;gap:8px;" id="threat-list">
         <div class="stat-row">
           <span class="stat-label">HOSTILE-1</span>
@@ -806,12 +919,12 @@
     </div>
 
     <div>
-      <div class="panel-title">AI NARRATION</div>
+      <div class="panel-title has-tip" data-tip="narration" data-title="AI NARRATION" data-emoji="🤖" data-text="When connected to the internet backend, this box shows live tactical commentary generated by Claude AI — describing what the boats are doing in real military radio style. Offline it shows local status messages.">AI NARRATION</div>
       <div id="narration-box">Awaiting deployment order...<span class="typing-cursor"></span></div>
     </div>
 
     <div>
-      <div class="panel-title">CALLSIGN</div>
+      <div class="panel-title has-tip" data-tip="callsign" data-title="CALLSIGN" data-emoji="🪪" data-text="Type your nickname here before submitting a score! This is the name that appears on the leaderboard. Keep it short — max 12 characters. Example: GHOST-7, NEPTUNE, IRONSIDE.">CALLSIGN</div>
       <input type="text" class="game-input" id="player-name" placeholder="Enter callsign..." maxlength="12" value="COMMANDER">
       <button class="ctrl-btn" onclick="submitScore()" style="margin-top:8px;width:100%;text-align:center;">
         ↑ SUBMIT SCORE
@@ -819,7 +932,7 @@
     </div>
 
     <div>
-      <div class="panel-title">LEADERBOARD</div>
+      <div class="panel-title has-tip" data-tip="lb" data-title="LEADERBOARD" data-emoji="🏆" data-text="The top scores from all players! After each mission, type your callsign and hit SUBMIT SCORE to appear here. The score is based on how much of the map you covered and how many threats were neutralized.">LEADERBOARD</div>
       <div id="leaderboard-list">
         <div class="lb-row">
           <div class="lb-rank gold">#1</div>
@@ -1220,19 +1333,33 @@ function getThreatsNeutralized() {
 
 function render() {
   const W = canvas.width, H = canvas.height;
-  const scaleX = W / WORLD, scaleY = H / WORLD;
-
-  const sx = x => x * scaleX;
-  const sy = y => y * scaleY;
+  // Use the smaller dimension to keep world square and centered
+  const scale = Math.min(W / WORLD, H / WORLD);
+  const offsetX = (W - WORLD * scale) / 2;
+  const offsetY = (H - WORLD * scale) / 2;
+  const scaleX = scale, scaleY = scale;
+  const sx = x => x * scaleX + offsetX;
+  const sy = y => y * scaleY + offsetY;
 
   ctx.clearRect(0, 0, W, H);
 
-  // Ocean background
-  const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W*0.7);
+  // Full canvas dark background
+  ctx.fillStyle = '#020b14';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid border
+  ctx.strokeStyle = 'rgba(0,229,204,0.25)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(offsetX, offsetY, WORLD * scale, WORLD * scale);
+
+  // Ocean area background (centered grid)
+  const gridW = WORLD * scale;
+  const gridH = WORLD * scale;
+  const grad = ctx.createRadialGradient(sx(WORLD/2), sy(WORLD/2), 0, sx(WORLD/2), sy(WORLD/2), gridW*0.7);
   grad.addColorStop(0, '#051c2c');
   grad.addColorStop(1, '#020b14');
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(offsetX, offsetY, WORLD * scale, WORLD * scale);
 
   // Grid cells (coverage)
   for (let r = 0; r < CELLS; r++) {
@@ -1247,26 +1374,26 @@ function render() {
     }
   }
 
-  // Grid lines
+  // Grid lines (contained within the world area)
   ctx.strokeStyle = 'rgba(0,229,204,0.06)';
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= CELLS; i++) {
     ctx.beginPath();
-    ctx.moveTo(sx(i * CELL_SIZE), 0);
-    ctx.lineTo(sx(i * CELL_SIZE), H);
+    ctx.moveTo(sx(i * CELL_SIZE), sy(0));
+    ctx.lineTo(sx(i * CELL_SIZE), sy(WORLD));
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(0, sy(i * CELL_SIZE));
-    ctx.lineTo(W, sy(i * CELL_SIZE));
+    ctx.moveTo(sx(0), sy(i * CELL_SIZE));
+    ctx.lineTo(sx(WORLD), sy(i * CELL_SIZE));
     ctx.stroke();
   }
 
   // Coordinate labels
   ctx.fillStyle = 'rgba(0,229,204,0.15)';
-  ctx.font = `${Math.max(7, W * 0.015)}px 'Share Tech Mono'`;
+  ctx.font = `${Math.max(7, scale * 12)}px 'Share Tech Mono'`;
   for (let i = 0; i < CELLS; i++) {
-    ctx.fillText(String.fromCharCode(65 + i), sx(i * CELL_SIZE + 2), sy(CELL_SIZE) - 3);
-    ctx.fillText(i + 1, 2, sy(i * CELL_SIZE + 3));
+    ctx.fillText(String.fromCharCode(65 + i), sx(i * CELL_SIZE + 2), sy(0) + scale * 12);
+    ctx.fillText(i + 1, sx(0) + 2, sy(i * CELL_SIZE + 12));
   }
 
   // Formation line
@@ -1722,12 +1849,13 @@ function resizeCanvas() {
   const controls = document.getElementById('controls');
   const W = area.clientWidth;
   const H = area.clientHeight - controls.clientHeight - 3;
+  // Fill the full width, keep it square
   const size = Math.min(W, H);
-  canvas.width = size;
-  canvas.height = size;
-  canvas.style.width = size + 'px';
-  canvas.style.height = size + 'px';
-  canvas.style.margin = 'auto';
+  canvas.width = W;
+  canvas.height = H;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.style.margin = '0';
   canvas.style.display = 'block';
   render();
 }
@@ -1751,6 +1879,37 @@ setTimeout(() => {
 setTimeout(() => {
   if (gameMode === 'training') togglePlay();
 }, 1200);
+
+// ---- TOOLTIP SYSTEM ----
+const tipBubble = document.getElementById('tip-bubble');
+const tipTitle  = document.getElementById('tip-title');
+const tipEmoji  = document.getElementById('tip-emoji');
+const tipText   = document.getElementById('tip-text');
+
+document.querySelectorAll('.has-tip').forEach(el => {
+  el.addEventListener('mouseenter', e => {
+    tipTitle.textContent = el.dataset.title || '';
+    tipEmoji.textContent = el.dataset.emoji || '';
+    tipText.textContent  = el.dataset.text  || '';
+    tipBubble.classList.add('visible');
+    positionTip(e);
+  });
+  el.addEventListener('mousemove', positionTip);
+  el.addEventListener('mouseleave', () => tipBubble.classList.remove('visible'));
+});
+
+function positionTip(e) {
+  const x = e.clientX, y = e.clientY;
+  const bw = tipBubble.offsetWidth  || 260;
+  const bh = tipBubble.offsetHeight || 100;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = x + 16;
+  let top  = y + 16;
+  if (left + bw > vw - 8) left = x - bw - 16;
+  if (top  + bh > vh - 8) top  = y - bh - 16;
+  tipBubble.style.left = left + 'px';
+  tipBubble.style.top  = top  + 'px';
+}
 </script>
 </body>
 </html>
