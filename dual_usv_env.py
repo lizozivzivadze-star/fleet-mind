@@ -62,8 +62,8 @@ class DualUSVEnv(gym.Env):
 
     # ------------------------------------------------------------------
     def _init_state(self):
-        self.usv1_pos     = np.array([80.0, 190.0])
-        self.usv2_pos     = np.array([80.0, 310.0])
+        self.usv1_pos     = np.array([60.0, 150.0])
+        self.usv2_pos     = np.array([60.0, 350.0])
         self.usv1_heading = 0.0
         self.usv2_heading = 0.0
 
@@ -133,7 +133,7 @@ class DualUSVEnv(gym.Env):
             was_zero = self.coverage[cy, cx] == 0.0
             self.coverage[cy, cx] = 1.0
             if was_zero:
-                reward += 0.1
+                reward += 0.3
 
         # Scan radius — partially covers neighbors
         for dy in range(-1, 2):
@@ -165,11 +165,11 @@ class DualUSVEnv(gym.Env):
         # Formation
         dist = float(np.linalg.norm(self.usv1_pos - self.usv2_pos))
         if dist < self.COLLIDE_DIST:
-            reward -= 0.6
+            reward -= 0.2
         elif self.MIN_FORM <= dist <= self.MAX_FORM:
             reward += 0.2
         elif dist > self.MAX_FORM:
-            reward -= 0.25
+            reward -= 0.05
 
         # Threats
         for t in self.threats:
